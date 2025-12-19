@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TodoEvent.DTOs;
 using TodoEvent.Models;
 using TodoEvent.Services;
@@ -20,9 +21,20 @@ namespace TodoEvent.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetEvents()
+        public async Task<ActionResult<IEnumerable<EventDtoList>>> GetEvents()
         {
-            var results = await _context.Event.OrderByDescending(e => e.Id).ToListAsync();
+            var results = await _context.Event
+                .OrderByDescending(e => e.Id)
+                .Select(e => new EventDtoList
+                {
+                    Id = e.Id,
+                    Title = e.Title,
+                    Description = e.Description,
+                    Start = e.Start,
+                    End = e.End,
+                    AllDay = e.AllDay
+                }).ToListAsync();
+
             return Ok(results);
         }
 
@@ -30,6 +42,7 @@ namespace TodoEvent.Controllers
         public async Task<IActionResult> GetEvent(int id)
         {
             var row = await _context.Event.FindAsync(id);
+
             if (row is null)
                 return NotFound($"Event with id {id} not found.");
 
@@ -53,6 +66,41 @@ namespace TodoEvent.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(evt);
+        }
+
+        [HttpPost("{id}")]
+        public async Task<IActionResult> EditEvent(int id, EventDtoUpdate dto)
+        {
+            var evt = await _context.Event.FindAsync(id);
+
+            if(evt is null){
+                return NotFound();
+            }
+
+            evt.Title = dto.Title;
+            evt.Description = dto.Description;
+            evt.Start = dto.Start;
+            evt.End = dto.End;
+            evt.AllDay = dto.AllDay;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(evt);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteEvent(int id)
+        {
+            var evt = await _context.Event.FindAsync(id);
+            if(evt is null)
+            {
+                return NotFound();
+            }
+
+            _context.Event.Remove(evt);
+            await _context.SaveChangesAsync();
+
+            return Ok();
         }
 
     }
